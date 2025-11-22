@@ -1,4 +1,4 @@
-# io.qbs
+# streams.qbs
 
 Qbs: قَبَسَ • (qabasa) I (non-past يَقْبِسُ (yaqbisu), verbal noun قَبْس (qabs))
 - to take from, to derive, to obtain (primitively, fire)
