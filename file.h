@@ -57,11 +57,14 @@ inline qbs_io_file_t qbs_file_open(char *filename, int mode) {
   if (fd < 0)
     return (qbs_io_file_t){.err = fd};
 
+  qbs_io_read rcb = (mode & O_RDWR || mode & O_RDONLY) ? (qbs_io_read)qbs_file_read : qbs_io_invalid_rw;
+  qbs_io_write wcb = (mode & O_RDWR || mode & O_WRONLY) ? (qbs_io_write)qbs_file_write : qbs_io_invalid_rw;
+
   return (qbs_io_file_t){
       .io =
           {
-              .read = (qbs_io_read)qbs_file_read,
-              .write = (qbs_io_write)qbs_file_write,
+              .read = rcb,
+              .write = wcb,
               .close = (qbs_io_close)qbs_file_close,
           },
       .ctx =

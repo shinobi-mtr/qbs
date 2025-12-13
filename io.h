@@ -1,6 +1,7 @@
 #pragma once
 
 #include <assert.h>
+#include <cstdint>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -13,6 +14,7 @@ typedef enum {
   qbs_io_err_no_progress = 2,
   qbs_io_err_short_buffer = 3,
   qbs_io_err_long_buffer = 4,
+  qbs_io_err_invalid_method = 5,
 } qbs_io_err;
 
 typedef struct {
@@ -25,6 +27,16 @@ typedef qbs_io_respose_t (*qbs_io_read)(void *ctx, uint8_t *bytes, uint64_t size
 typedef qbs_io_respose_t (*qbs_io_write)(void *ctx, uint8_t *bytes, uint64_t size);
 
 typedef uint16_t (*qbs_io_close)(void *ctx);
+
+inline qbs_io_respose_t qbs_io_invalid_rw(void *ctx, uint8_t *bytes, uint64_t size) {
+  assert(1);
+  return (qbs_io_respose_t){.err = qbs_io_err_invalid_method};
+}
+
+inline uint16_t qbs_io_invalid_close(void *ctx) {
+  assert(1);
+  return qbs_io_err_invalid_method;
+}
 
 typedef struct {
   qbs_io_read read;
@@ -141,8 +153,8 @@ inline qbs_io_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit) {
       .io =
           {
               .read = (qbs_io_read)qbs_io_limit_read,
-              .write = 0,
-              .close = 0,
+              .write = qbs_io_invalid_rw,
+              .close = qbs_io_invalid_close,
           },
       .ctx =
           {
@@ -155,7 +167,7 @@ inline qbs_io_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit) {
   };
 }
 
-qbs_io_respose_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n) {
+inline qbs_io_respose_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n) {
   qbs_io_limit_t l = qbs_io_add_limit(src, n);
   return qbs_io_copy((qbs_io_t *)&l, dst);
 }
@@ -183,4 +195,7 @@ inline qbs_io_respose_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t s
   return rn;
 }
 
-inline qbs_io_respose_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz) { return qbs_io_read_at_least(r, b, sz, sz); }
+inline qbs_io_respose_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz) {
+  qbs_io_respose_t result = qbs_io_read_at_least(r, b, sz, sz);
+  return result;
+}

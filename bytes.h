@@ -54,16 +54,16 @@ inline qbs_io_respose_t qbs_bytes_write(qbs_bytes_ctx_t *ctx, uint8_t *b, uint64
   };
 }
 
-inline qbs_bytes_io_t qbs_bytes_writer(uint8_t *buffer, uint64_t size) {
+inline qbs_bytes_io_t qbs_bytes_reader(uint8_t *buffer, uint64_t size) {
   assert(buffer != 0);
   assert(size != 0);
 
   return (qbs_bytes_io_t){
       .io =
           {
-              .read = 0,
-              .write = (qbs_io_write)qbs_bytes_write,
-              .close = 0,
+              .read = (qbs_io_read)qbs_bytes_read,
+              .write = qbs_io_invalid_rw,
+              .close = qbs_io_invalid_close,
           },
       .ctx =
           {
@@ -75,16 +75,16 @@ inline qbs_bytes_io_t qbs_bytes_writer(uint8_t *buffer, uint64_t size) {
   };
 }
 
-inline qbs_bytes_io_t qbs_bytes_reader(uint8_t *buffer, uint64_t size) {
+inline qbs_bytes_io_t qbs_bytes_writer(uint8_t *buffer, uint64_t size) {
   assert(buffer != 0);
   assert(size != 0);
 
   return (qbs_bytes_io_t){
       .io =
           {
-              .read = (qbs_io_read)qbs_bytes_read,
-              .write = 0,
-              .close = 0,
+              .read = qbs_io_invalid_rw,
+              .write = (qbs_io_write)qbs_bytes_write,
+              .close = qbs_io_invalid_close,
           },
       .ctx =
           {
