@@ -43,13 +43,13 @@ typedef struct {
   int err;
 } qbs_tcp_listener_t;
 
-qbs_io_respose_t qbs_file_close(qbs_file_ctx_t *ctx) {
+inline qbs_io_respose_t qbs_file_close(qbs_file_ctx_t *ctx) {
   return (qbs_io_respose_t){
       .err = close(ctx->fd),
   };
 }
 
-qbs_io_respose_t qbs_file_read(qbs_file_ctx_t *ctx, uint8_t *b, uint64_t sz) {
+inline qbs_io_respose_t qbs_file_read(qbs_file_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
   assert(ctx->mode & O_RDONLY || ctx->mode & O_RDWR);
@@ -66,7 +66,7 @@ qbs_io_respose_t qbs_file_read(qbs_file_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   };
 }
 
-qbs_io_respose_t qbs_file_write(qbs_file_ctx_t *ctx, uint8_t *b, uint64_t sz) {
+inline qbs_io_respose_t qbs_file_write(qbs_file_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
   assert(ctx->mode & O_WRONLY || ctx->mode & O_RDWR);
@@ -78,7 +78,7 @@ qbs_io_respose_t qbs_file_write(qbs_file_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   };
 }
 
-qbs_io_file_t qbs_file_open(char *filename, int mode) {
+inline qbs_io_file_t qbs_file_open(char *filename, int mode) {
   int fd = open(filename, mode, 0644);
   if (fd < 0)
     return (qbs_io_file_t){.err = fd};
@@ -100,13 +100,13 @@ qbs_io_file_t qbs_file_open(char *filename, int mode) {
   };
 }
 
-qbs_io_respose_t qbs_tcp_close(qbs_tcp_ctx_t *ctx) {
+inline qbs_io_respose_t qbs_tcp_close(qbs_tcp_ctx_t *ctx) {
   return (qbs_io_respose_t){
       .err = close(ctx->sock),
   };
 }
 
-qbs_io_respose_t qbs_tcp_read(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz) {
+inline qbs_io_respose_t qbs_tcp_read(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
 
@@ -122,7 +122,7 @@ qbs_io_respose_t qbs_tcp_read(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   };
 }
 
-qbs_io_respose_t qbs_tcp_write(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz) {
+inline qbs_io_respose_t qbs_tcp_write(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
 
@@ -133,7 +133,7 @@ qbs_io_respose_t qbs_tcp_write(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   };
 }
 
-qbs_io_tcp_t qbs_tcp_dail(char *address, uint16_t port) {
+inline qbs_io_tcp_t qbs_tcp_dail(char *address, uint16_t port) {
   int sock = socket(AF_INET, SOCK_STREAM, 0);
   if (sock < 0)
     return (qbs_io_tcp_t){.err = sock};
@@ -166,7 +166,7 @@ qbs_io_tcp_t qbs_tcp_dail(char *address, uint16_t port) {
   };
 }
 
-qbs_tcp_listener_t qbs_tcp_listen(char *address, uint16_t port) {
+inline qbs_tcp_listener_t qbs_tcp_listen(char *address, uint16_t port) {
   int sock, res;
   struct sockaddr_in addr;
   int opt = 1;
@@ -198,7 +198,7 @@ qbs_tcp_listener_t qbs_tcp_listen(char *address, uint16_t port) {
   return (qbs_tcp_listener_t){sock, addr, 0};
 }
 
-qbs_io_tcp_t qbs_tcp_accept(qbs_tcp_listener_t *l) {
+inline qbs_io_tcp_t qbs_tcp_accept(qbs_tcp_listener_t *l) {
   int addrlen = sizeof(l->address);
   int sock = accept(l->sock, (struct sockaddr *)&l->address, (socklen_t *)&addrlen);
   if (sock <= 0) {

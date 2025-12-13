@@ -45,7 +45,7 @@ typedef struct {
   qbs_limit_ctx ctx;
 } qbs_io_limit_t;
 
-const uint8_t *qbs_io_error_to_string(int16_t code) {
+inline const uint8_t *qbs_io_error_to_string(int16_t code) {
   switch (code) {
   case qbs_io_err_eof:
     return (uint8_t *)"EOF";
@@ -60,7 +60,7 @@ const uint8_t *qbs_io_error_to_string(int16_t code) {
   return (uint8_t *)"unreachable";
 }
 
-qbs_io_respose_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *buf, uint64_t sz) {
+inline qbs_io_respose_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *buf, uint64_t sz) {
   assert(src != 0);
   assert(dst != 0);
   assert(sz != 0);
@@ -90,12 +90,12 @@ qbs_io_respose_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *buf, 
   };
 }
 
-qbs_io_respose_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst) {
+inline qbs_io_respose_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst) {
   uint8_t mid[512] = {0};
   return qbs_io_copy_buffer(src, dst, mid, sizeof(mid));
 }
 
-qbs_io_respose_t qbs_io_limit_read(qbs_limit_ctx *ltx, uint8_t *buf, uint64_t sz) {
+inline qbs_io_respose_t qbs_io_limit_read(qbs_limit_ctx *ltx, uint8_t *buf, uint64_t sz) {
   assert(buf != 0);
   assert(sz != 0);
 
@@ -133,7 +133,7 @@ qbs_io_respose_t qbs_io_limit_read(qbs_limit_ctx *ltx, uint8_t *buf, uint64_t sz
   return rn;
 }
 
-qbs_io_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit) {
+inline qbs_io_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit) {
   assert(r != 0);
   assert(limit != 0);
 
@@ -160,7 +160,7 @@ qbs_io_respose_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n) {
   return qbs_io_copy((qbs_io_t *)&l, dst);
 }
 
-qbs_io_respose_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint64_t min) {
+inline qbs_io_respose_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint64_t min) {
   assert(r != 0);
   assert(b != 0);
   assert(sz != 0);
@@ -183,4 +183,4 @@ qbs_io_respose_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint
   return rn;
 }
 
-qbs_io_respose_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz) { return qbs_io_read_at_least(r, b, sz, sz); }
+inline qbs_io_respose_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz) { return qbs_io_read_at_least(r, b, sz, sz); }
