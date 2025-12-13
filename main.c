@@ -33,5 +33,5 @@ void test_from_socket_to_file() {
 int main() {
   test_from_socket_to_file();
   test_from_file_to_socket();
-  return 1;
+  return 0;
 }
