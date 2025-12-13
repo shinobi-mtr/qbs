@@ -10,7 +10,7 @@
 #include <unistd.h>
 
 typedef enum {
-  qbs_streams_tcp_opt,
+  qbs_streams_tcp_opt = 1,
 } qbs_streams_err;
 
 typedef struct {
