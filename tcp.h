@@ -3,27 +3,8 @@
 #include "io.h"
 #include <arpa/inet.h>
 #include <assert.h>
-#include <fcntl.h>
 #include <netinet/in.h>
-#include <stdint.h>
-#include <sys/socket.h>
 #include <unistd.h>
-
-typedef enum {
-  qbs_streams_tcp_opt = 1,
-} qbs_streams_err;
-
-typedef struct {
-  const char *filename;
-  const int mode;
-  int fd;
-} qbs_file_ctx_t;
-
-typedef struct {
-  qbs_io_t io;
-  qbs_file_ctx_t ctx;
-  int err;
-} qbs_io_file_t;
 
 typedef struct {
   const char *address;
@@ -42,63 +23,6 @@ typedef struct {
   struct sockaddr_in address;
   int err;
 } qbs_tcp_listener_t;
-
-inline qbs_io_respose_t qbs_file_close(qbs_file_ctx_t *ctx) {
-  return (qbs_io_respose_t){
-      .err = close(ctx->fd),
-  };
-}
-
-inline qbs_io_respose_t qbs_file_read(qbs_file_ctx_t *ctx, uint8_t *b, uint64_t sz) {
-  assert(ctx != 0);
-  assert(b != 0);
-  assert(ctx->mode & O_RDONLY || ctx->mode & O_RDWR);
-
-  uint64_t res = read(ctx->fd, b, sz);
-  if (res == 0)
-    return (qbs_io_respose_t){
-        .err = qbs_io_err_eof,
-        .n = 0,
-    };
-  return (qbs_io_respose_t){
-      .err = res < 0 ? (int64_t)res : qbs_io_err_null,
-      .n = res,
-  };
-}
-
-inline qbs_io_respose_t qbs_file_write(qbs_file_ctx_t *ctx, uint8_t *b, uint64_t sz) {
-  assert(ctx != 0);
-  assert(b != 0);
-  assert(ctx->mode & O_WRONLY || ctx->mode & O_RDWR);
-
-  uint64_t res = write(ctx->fd, b, sz);
-  return (qbs_io_respose_t){
-      .err = res < 0 ? (int64_t)res : qbs_io_err_null,
-      .n = res,
-  };
-}
-
-inline qbs_io_file_t qbs_file_open(char *filename, int mode) {
-  int fd = open(filename, mode, 0644);
-  if (fd < 0)
-    return (qbs_io_file_t){.err = fd};
-
-  return (qbs_io_file_t){
-      .io =
-          {
-              .read = (qbs_io_read)qbs_file_read,
-              .write = (qbs_io_write)qbs_file_write,
-              .close = (qbs_io_close)qbs_file_close,
-          },
-      .ctx =
-          {
-              .filename = filename,
-              .mode = mode,
-              .fd = fd,
-          },
-      .err = 0,
-  };
-}
 
 inline qbs_io_respose_t qbs_tcp_close(qbs_tcp_ctx_t *ctx) {
   return (qbs_io_respose_t){
@@ -178,7 +102,7 @@ inline qbs_tcp_listener_t qbs_tcp_listen(char *address, uint16_t port) {
   res = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
   if (res != 0) {
     close(sock);
-    return (qbs_tcp_listener_t){.err = qbs_streams_tcp_opt};
+    return (qbs_tcp_listener_t){.err = 1};
   }
 
   addr.sin_family = AF_INET;
