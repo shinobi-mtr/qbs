@@ -1,50 +1,33 @@
 #include "streams.h"
 #include <assert.h>
+#include <fcntl.h>
 
 void test_from_file_to_socket() {
-  qbs_file_t fxt = {
-      .filename = "test.txt",
-      .mode = O_RDWR | O_CREAT,
-  };
-  qbs_io_t file = {0};
+  qbs_io_file_t f = qbs_file_open("test.txt", O_RDWR | O_CREAT);
+  qbs_io_tcp_t t = qbs_tcp_dail("0.0.0.0", 8889);
 
-  qbs_tcp_t ttx = {
-      .ip = "0.0.0.0",
-      .port = 8888,
-  };
-  qbs_io_t tcp = {0};
+  assert(f.err == 0);
+  assert(t.err == 0);
 
-  assert(qbs_file_open(&file, &fxt) == 0);
-  assert(qbs_tcp_connect(&tcp, &ttx) == 0);
-
-  qbs_io_respose_t cr = qbs_io_copy(&tcp, &file);
+  qbs_io_respose_t cr = qbs_io_copy(&t.io, &f.io);
   assert(cr.err == qbs_io_err_null);
 
-  file.close(&file);
-  tcp.close(&file);
+  f.io.close(&f.ctx);
+  t.io.close(&t.ctx);
 }
 
 void test_from_socket_to_file() {
-  qbs_file_t fxt = {
-      .filename = "test.txt",
-      .mode = O_RDWR | O_CREAT,
-  };
-  qbs_io_t file = {0};
+  qbs_io_file_t f = qbs_file_open("test.txt", O_RDWR | O_CREAT);
+  qbs_io_tcp_t t = qbs_tcp_dail("0.0.0.0", 8888);
 
-  qbs_tcp_t ttx = {
-      .ip = "0.0.0.0",
-      .port = 8888,
-  };
-  qbs_io_t tcp = {0};
+  assert(f.err == 0);
+  assert(t.err == 0);
 
-  assert(qbs_file_open(&file, &fxt) == 0);
-  assert(qbs_tcp_connect(&tcp, &ttx) == 0);
-
-  qbs_io_respose_t cr = qbs_io_copy(&file, &tcp);
+  qbs_io_respose_t cr = qbs_io_copy(&f.io, &t.io);
   assert(cr.err == qbs_io_err_null);
 
-  file.close(&file);
-  tcp.close(&file);
+  f.io.close(&f.ctx);
+  t.io.close(&t.ctx);
 }
 
 int main() {

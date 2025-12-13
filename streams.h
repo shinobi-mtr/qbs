@@ -15,16 +15,21 @@ typedef struct {
   const char *filename;
   const int mode;
   int fd;
+} qbs_file_ctx_t;
 
-} qbs_file_t;
+typedef struct {
+  qbs_io_t io;
+  qbs_file_ctx_t ctx;
+  int err;
+} qbs_io_file_t;
 
-qbs_io_respose_t qbs_stream_close(qbs_file_t *ctx) {
+qbs_io_respose_t qbs_stream_close(qbs_file_ctx_t *ctx) {
   return (qbs_io_respose_t){
       .err = close(ctx->fd),
   };
 }
 
-qbs_io_respose_t qbs_stream_read(qbs_file_t *ctx, uint8_t *b, uint64_t sz) {
+qbs_io_respose_t qbs_stream_read(qbs_file_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
 
@@ -40,7 +45,7 @@ qbs_io_respose_t qbs_stream_read(qbs_file_t *ctx, uint8_t *b, uint64_t sz) {
   };
 }
 
-qbs_io_respose_t qbs_stream_write(qbs_file_t *ctx, uint8_t *b, uint64_t sz) {
+qbs_io_respose_t qbs_stream_write(qbs_file_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
 
@@ -51,51 +56,69 @@ qbs_io_respose_t qbs_stream_write(qbs_file_t *ctx, uint8_t *b, uint64_t sz) {
   };
 }
 
-int qbs_file_open(qbs_io_t *io, qbs_file_t *ctx) {
-  assert(io != 0);
-  assert(ctx != 0);
+qbs_io_file_t qbs_file_open(char *filename, int mode) {
+  int fd = open(filename, mode, 0644);
+  if (fd < 0)
+    return (qbs_io_file_t){.err = fd};
 
-  ctx->fd = open(ctx->filename, ctx->mode, 0644);
-  if (ctx->fd < 0)
-    return ctx->fd;
-
-  *io = (qbs_io_t){
-      .ctx = ctx,
-      .read = (qbs_io_read)qbs_stream_read,
-      .write = (qbs_io_write)qbs_stream_write,
-      .close = (qbs_io_close)qbs_stream_close,
+  return (qbs_io_file_t){
+      .io =
+          {
+              .read = (qbs_io_read)qbs_stream_read,
+              .write = (qbs_io_write)qbs_stream_write,
+              .close = (qbs_io_close)qbs_stream_close,
+          },
+      .ctx =
+          {
+              .filename = filename,
+              .mode = mode,
+              .fd = fd,
+          },
+      .err = 0,
   };
-  return 0;
 }
 
 typedef struct {
-  const char *ip;
+  const char *address;
   const uint16_t port;
   int sock;
-} qbs_tcp_t;
+} qbs_tcp_ctx_t;
 
-int qbs_tcp_connect(qbs_io_t *io, qbs_tcp_t *ctx) {
-  assert(io != 0);
-  assert(ctx != 0);
+typedef struct {
+  qbs_io_t io;
+  qbs_tcp_ctx_t ctx;
+  int err;
+} qbs_io_tcp_t;
 
-  ctx->sock = socket(AF_INET, SOCK_STREAM, 0);
-  if (ctx->sock < 0)
-    return ctx->sock;
+qbs_io_tcp_t qbs_tcp_dail(char *address, uint16_t port) {
+  int sock = socket(AF_INET, SOCK_STREAM, 0);
+  if (sock < 0)
+    return (qbs_io_tcp_t){.err = sock};
 
   struct sockaddr_in seradr;
   seradr.sin_family = AF_INET;
-  seradr.sin_port = htons(ctx->port);
-  inet_pton(AF_INET, ctx->ip, &seradr.sin_addr);
+  seradr.sin_port = htons(port);
+  inet_pton(AF_INET, address, &seradr.sin_addr);
 
-  int res = connect(ctx->sock, (struct sockaddr *)&seradr, sizeof(seradr));
+  int res = connect(sock, (struct sockaddr *)&seradr, sizeof(seradr));
   if (res < 0)
-    return res;
+    return (qbs_io_tcp_t){.err = res};
 
-  *io = (qbs_io_t){
-      .ctx = ctx,
-      .read = (qbs_io_read)qbs_stream_read,
-      .write = (qbs_io_write)qbs_stream_write,
-      .close = (qbs_io_close)qbs_stream_close,
+  qbs_io_t io = (qbs_io_t){};
+  return (qbs_io_tcp_t){
+      .io =
+          {
+              .read = (qbs_io_read)qbs_stream_read,
+              .write = (qbs_io_write)qbs_stream_write,
+              .close = (qbs_io_close)qbs_stream_close,
+          },
+      .ctx =
+          {
+              .address = address,
+              .port = port,
+              .sock = sock,
+
+          },
+      .err = 0,
   };
-  return 0;
 }

@@ -27,10 +27,10 @@ typedef qbs_io_respose_t (*qbs_io_write)(void *ctx, uint8_t *bytes, uint64_t siz
 typedef uint16_t (*qbs_io_close)(void *ctx);
 
 typedef struct {
-  void *ctx;
   qbs_io_read read;
   qbs_io_write write;
   qbs_io_close close;
+  uint8_t ctx[0];
 } qbs_io_t;
 
 typedef struct {
@@ -38,6 +38,11 @@ typedef struct {
   uint64_t done;
   qbs_io_t *r;
   bool is_completed;
+} qbs_limit_ctx;
+
+typedef struct {
+  qbs_io_t io;
+  qbs_limit_ctx ctx;
 } qbs_io_limit_t;
 
 const uint8_t *qbs_io_error_to_string(int16_t code) {
@@ -90,12 +95,9 @@ qbs_io_respose_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst) {
   return qbs_io_copy_buffer(src, dst, mid, sizeof(mid));
 }
 
-qbs_io_respose_t qbs_io_limit_read(void *ctx, uint8_t *buf, uint64_t sz) {
-  assert(ctx != 0);
+qbs_io_respose_t qbs_io_limit_read(qbs_limit_ctx *ltx, uint8_t *buf, uint64_t sz) {
   assert(buf != 0);
   assert(sz != 0);
-
-  qbs_io_limit_t *ltx = (qbs_io_limit_t *)ctx;
 
   assert(ltx->done <= ltx->limit);
 
@@ -131,29 +133,31 @@ qbs_io_respose_t qbs_io_limit_read(void *ctx, uint8_t *buf, uint64_t sz) {
   return rn;
 }
 
-qbs_io_t qbs_io_add_limit(qbs_io_limit_t *l, qbs_io_t *r, uint64_t limit) {
-  assert(l != 0);
+qbs_io_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit) {
   assert(r != 0);
   assert(limit != 0);
 
-  *l = (qbs_io_limit_t){
-      .limit = limit,
-      .done = 0,
-      .r = r,
-      .is_completed = false,
-  };
-  return (qbs_io_t){
-      .ctx = l,
-      .read = qbs_io_limit_read,
-      .write = 0,
-      .close = 0,
+  return (qbs_io_limit_t){
+      .io =
+          {
+              .read = (qbs_io_read)qbs_io_limit_read,
+              .write = 0,
+              .close = 0,
+          },
+      .ctx =
+          {
+
+              .limit = limit,
+              .done = 0,
+              .r = r,
+              .is_completed = false,
+          },
   };
 }
 
 qbs_io_respose_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n) {
-  qbs_io_limit_t l = {0};
-  qbs_io_t lsrc = qbs_io_add_limit(&l, src, n);
-  return qbs_io_copy(&lsrc, dst);
+  qbs_io_limit_t l = qbs_io_add_limit(src, n);
+  return qbs_io_copy((qbs_io_t *)&l, dst);
 }
 
 qbs_io_respose_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint64_t min) {
