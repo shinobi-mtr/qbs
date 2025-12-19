@@ -1,7 +1,6 @@
 #pragma once
 
 #include <assert.h>
-#include <cstdint>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -28,13 +27,13 @@ typedef qbs_io_respose_t (*qbs_io_write)(void *ctx, uint8_t *bytes, uint64_t siz
 
 typedef uint16_t (*qbs_io_close)(void *ctx);
 
-inline qbs_io_respose_t qbs_io_invalid_rw(void *ctx, uint8_t *bytes, uint64_t size) {
-  assert(1);
+qbs_io_respose_t qbs_io_invalid_rw(void *ctx, uint8_t *bytes, uint64_t size) {
+  assert(0);
   return (qbs_io_respose_t){.err = qbs_io_err_invalid_method};
 }
 
-inline uint16_t qbs_io_invalid_close(void *ctx) {
-  assert(1);
+uint16_t qbs_io_invalid_close(void *ctx) {
+  assert(0);
   return qbs_io_err_invalid_method;
 }
 
@@ -57,7 +56,7 @@ typedef struct {
   qbs_limit_ctx ctx;
 } qbs_io_limit_t;
 
-inline const uint8_t *qbs_io_error_to_string(int16_t code) {
+const uint8_t *qbs_io_error_to_string(int16_t code) {
   switch (code) {
   case qbs_io_err_eof:
     return (uint8_t *)"EOF";
@@ -72,22 +71,25 @@ inline const uint8_t *qbs_io_error_to_string(int16_t code) {
   return (uint8_t *)"unreachable";
 }
 
-inline qbs_io_respose_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *buf, uint64_t sz) {
+qbs_io_respose_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *buf, uint64_t sz) {
   assert(src != 0);
   assert(dst != 0);
   assert(sz != 0);
 
   qbs_io_respose_t rn, wn;
   uint64_t ttl = 0;
+
   while (true) {
     rn = src->read(src->ctx, buf, sz);
     if (rn.err == qbs_io_err_eof)
       break;
     if (rn.err != qbs_io_err_null)
       return rn;
+
     wn = dst->write(dst->ctx, buf, rn.n);
     if (wn.err != qbs_io_err_null)
       return wn;
+
     if (ttl == UINT64_MAX)
       return (qbs_io_respose_t){
           .err = qbs_io_err_long_buffer,
@@ -102,12 +104,12 @@ inline qbs_io_respose_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t
   };
 }
 
-inline qbs_io_respose_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst) {
+qbs_io_respose_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst) {
   uint8_t mid[512] = {0};
   return qbs_io_copy_buffer(src, dst, mid, sizeof(mid));
 }
 
-inline qbs_io_respose_t qbs_io_limit_read(qbs_limit_ctx *ltx, uint8_t *buf, uint64_t sz) {
+qbs_io_respose_t qbs_io_limit_read(qbs_limit_ctx *ltx, uint8_t *buf, uint64_t sz) {
   assert(buf != 0);
   assert(sz != 0);
 
@@ -145,7 +147,7 @@ inline qbs_io_respose_t qbs_io_limit_read(qbs_limit_ctx *ltx, uint8_t *buf, uint
   return rn;
 }
 
-inline qbs_io_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit) {
+qbs_io_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit) {
   assert(r != 0);
   assert(limit != 0);
 
@@ -167,12 +169,12 @@ inline qbs_io_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit) {
   };
 }
 
-inline qbs_io_respose_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n) {
+qbs_io_respose_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n) {
   qbs_io_limit_t l = qbs_io_add_limit(src, n);
   return qbs_io_copy((qbs_io_t *)&l, dst);
 }
 
-inline qbs_io_respose_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint64_t min) {
+qbs_io_respose_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint64_t min) {
   assert(r != 0);
   assert(b != 0);
   assert(sz != 0);
@@ -195,7 +197,7 @@ inline qbs_io_respose_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t s
   return rn;
 }
 
-inline qbs_io_respose_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz) {
+qbs_io_respose_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz) {
   qbs_io_respose_t result = qbs_io_read_at_least(r, b, sz, sz);
   return result;
 }

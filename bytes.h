@@ -17,7 +17,7 @@ typedef struct {
   qbs_bytes_ctx_t ctx;
 } qbs_bytes_io_t;
 
-inline qbs_io_respose_t qbs_bytes_read(qbs_bytes_ctx_t *ctx, uint8_t *b, uint64_t sz) {
+qbs_io_respose_t qbs_bytes_read(qbs_bytes_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   if (ctx->is_completed)
     return (qbs_io_respose_t){
         .err = qbs_io_err_no_progress,
@@ -42,7 +42,7 @@ inline qbs_io_respose_t qbs_bytes_read(qbs_bytes_ctx_t *ctx, uint8_t *b, uint64_
   };
 }
 
-inline qbs_io_respose_t qbs_bytes_write(qbs_bytes_ctx_t *ctx, uint8_t *b, uint64_t sz) {
+qbs_io_respose_t qbs_bytes_write(qbs_bytes_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   assert(sz <= ctx->capacity - ctx->offset);
 
   for (size_t i = 0; i < sz; i++)
@@ -54,7 +54,7 @@ inline qbs_io_respose_t qbs_bytes_write(qbs_bytes_ctx_t *ctx, uint8_t *b, uint64
   };
 }
 
-inline qbs_bytes_io_t qbs_bytes_reader(uint8_t *buffer, uint64_t size) {
+qbs_bytes_io_t qbs_bytes_reader(uint8_t *buffer, uint64_t size) {
   assert(buffer != 0);
   assert(size != 0);
 
@@ -75,7 +75,7 @@ inline qbs_bytes_io_t qbs_bytes_reader(uint8_t *buffer, uint64_t size) {
   };
 }
 
-inline qbs_bytes_io_t qbs_bytes_writer(uint8_t *buffer, uint64_t size) {
+qbs_bytes_io_t qbs_bytes_writer(uint8_t *buffer, uint64_t size) {
   assert(buffer != 0);
   assert(size != 0);
 

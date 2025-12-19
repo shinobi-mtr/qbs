@@ -24,13 +24,13 @@ typedef struct {
   int err;
 } qbs_tcp_listener_t;
 
-inline qbs_io_respose_t qbs_tcp_close(qbs_tcp_ctx_t *ctx) {
+qbs_io_respose_t qbs_tcp_close(qbs_tcp_ctx_t *ctx) {
   return (qbs_io_respose_t){
       .err = close(ctx->sock),
   };
 }
 
-inline qbs_io_respose_t qbs_tcp_read(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz) {
+qbs_io_respose_t qbs_tcp_read(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
 
@@ -46,7 +46,7 @@ inline qbs_io_respose_t qbs_tcp_read(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz
   };
 }
 
-inline qbs_io_respose_t qbs_tcp_write(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz) {
+qbs_io_respose_t qbs_tcp_write(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
 
@@ -57,7 +57,7 @@ inline qbs_io_respose_t qbs_tcp_write(qbs_tcp_ctx_t *ctx, uint8_t *b, uint64_t s
   };
 }
 
-inline qbs_io_tcp_t qbs_tcp_dail(char *address, uint16_t port) {
+qbs_io_tcp_t qbs_tcp_dail(char *address, uint16_t port) {
   int sock = socket(AF_INET, SOCK_STREAM, 0);
   if (sock < 0)
     return (qbs_io_tcp_t){.err = sock};
@@ -90,7 +90,7 @@ inline qbs_io_tcp_t qbs_tcp_dail(char *address, uint16_t port) {
   };
 }
 
-inline qbs_tcp_listener_t qbs_tcp_listen(char *address, uint16_t port) {
+qbs_tcp_listener_t qbs_tcp_listen(char *address, uint16_t port) {
   int sock, res;
   struct sockaddr_in addr;
   int opt = 1;
@@ -122,7 +122,7 @@ inline qbs_tcp_listener_t qbs_tcp_listen(char *address, uint16_t port) {
   return (qbs_tcp_listener_t){sock, addr, 0};
 }
 
-inline qbs_io_tcp_t qbs_tcp_accept(qbs_tcp_listener_t *l) {
+qbs_io_tcp_t qbs_tcp_accept(qbs_tcp_listener_t *l) {
   int addrlen = sizeof(l->address);
   int sock = accept(l->sock, (struct sockaddr *)&l->address, (socklen_t *)&addrlen);
   if (sock <= 0) {
