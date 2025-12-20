@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/types.h>
 
 #ifndef QBSDEF
 #define QBSDEF static inline
@@ -86,12 +87,15 @@ QBSDEF qbs_result_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz);
 
 // Reader/Writer creation
 QBSDEF qbs_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit);
-QBSDEF qbs_file_t qbs_file_open(char *filename, int mode);
-QBSDEF qbs_listener_t qbs_tcp_listen(char *address, uint16_t port);
-QBSDEF qbs_sock_t qbs_tcp_accept(qbs_listener_t *l);
-QBSDEF qbs_sock_t qbs_tcp_dail(char *address, uint16_t port);
 QBSDEF qbs_bytes_t qbs_bytes_reader(uint8_t *buffer, uint64_t size);
 QBSDEF qbs_bytes_t qbs_bytes_writer(uint8_t *buffer, uint64_t size);
+QBSDEF qbs_file_t qbs_file_open(const char *filename, int mode);
+QBSDEF qbs_sock_t qbs_tcp_accept(qbs_listener_t *l);
+QBSDEF qbs_sock_t qbs_tcp_dail(const char *address, uint16_t port);
+QBSDEF qbs_sock_t qbs_http_get(const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz);
+QBSDEF qbs_sock_t qbs_http_post(const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz, qbs_io_t *reader);
+
+QBSDEF qbs_listener_t qbs_tcp_listen(const char *address, uint16_t port);
 
 #endif // !QBS_H_
 
@@ -298,7 +302,7 @@ QBSDEF qbs_result_t qbs_file_write(qbs_file_t *ctx, uint8_t *b, uint64_t sz) {
   };
 }
 
-QBSDEF qbs_file_t qbs_file_open(char *filename, int mode) {
+QBSDEF qbs_file_t qbs_file_open(const char *filename, int mode) {
   int fd = open(filename, mode, 0644);
   if (fd < 0)
     return (qbs_file_t){.err = fd};
@@ -353,7 +357,7 @@ QBSDEF qbs_result_t qbs_tcp_write(qbs_sock_t *ctx, uint8_t *b, uint64_t sz) {
   };
 }
 
-QBSDEF qbs_sock_t qbs_tcp_dail(char *address, uint16_t port) {
+QBSDEF qbs_sock_t qbs_tcp_dail(const char *address, uint16_t port) {
   int sock = socket(AF_INET, SOCK_STREAM, 0);
   if (sock < 0)
     return (qbs_sock_t){.err = sock};
@@ -382,7 +386,7 @@ QBSDEF qbs_sock_t qbs_tcp_dail(char *address, uint16_t port) {
   };
 }
 
-QBSDEF qbs_listener_t qbs_tcp_listen(char *address, uint16_t port) {
+QBSDEF qbs_listener_t qbs_tcp_listen(const char *address, uint16_t port) {
   int sock, res;
   struct sockaddr_in addr;
   int opt = 1;
@@ -503,6 +507,82 @@ QBSDEF qbs_bytes_t qbs_bytes_writer(uint8_t *buffer, uint64_t size) {
       .buffer = buffer,
       .is_completed = false,
   };
+}
+
+QBSDEF qbs_sock_t qbs_http_get(const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz) {
+  qbs_result_t r;
+
+  qbs_sock_t s = qbs_tcp_dail(address, port);
+  if (s.err != 0)
+    return s;
+
+  r = s.io.write(&s, (uint8_t *)"GET ", 4);
+  if (r.err != 0)
+    goto err;
+
+  r = s.io.write(&s, (uint8_t *)route, rsz);
+  if (r.err != 0)
+    goto err;
+
+  r = s.io.write(&s, (uint8_t *)" HTTP/1.1\r\n", 11);
+  if (r.err != 0)
+    goto err;
+
+  r = s.io.write(&s, (uint8_t *)header, hsz);
+  if (r.err != 0)
+    goto err;
+
+  r = s.io.write(&s, (uint8_t *)"\r\n", 2);
+  if (r.err != 0)
+    goto err;
+
+  s.io.write = qbs_io_invalid_rw;
+  return s;
+
+err:
+  s.io.close(&s);
+  s.err = r.err;
+  return s;
+}
+
+QBSDEF qbs_sock_t qbs_http_post(const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz, qbs_io_t *reader) {
+  qbs_result_t r;
+
+  qbs_sock_t s = qbs_tcp_dail(address, port);
+  if (s.err != 0)
+    return s;
+
+  r = s.io.write(&s, (uint8_t *)"POST ", 5);
+  if (r.err != 0)
+    goto err;
+
+  r = s.io.write(&s, (uint8_t *)route, rsz);
+  if (r.err != 0)
+    goto err;
+
+  r = s.io.write(&s, (uint8_t *)" HTTP/1.1\r\n", 11);
+  if (r.err != 0)
+    goto err;
+
+  r = s.io.write(&s, (uint8_t *)header, hsz);
+  if (r.err != 0)
+    goto err;
+
+  r = s.io.write(&s, (uint8_t *)"\r\n", 2);
+  if (r.err != 0)
+    goto err;
+
+  r = qbs_io_copy(reader, &s.io);
+  if (r.err != 0)
+    goto err;
+
+  s.io.write = qbs_io_invalid_rw;
+  return s;
+
+err:
+  s.io.close(&s);
+  s.err = r.err;
+  return s;
 }
 
 #endif

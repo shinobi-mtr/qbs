@@ -19,9 +19,9 @@ Qbs: قَبَسَ • (qabasa) I (non-past يَقْبِسُ (yaqbisu), verbal no
 - Basic adapter for `tcp` client operations.
 - Basic adapter for `tcp` server operations.
 - Basic adapter for `bytes` operations.
+- Simple `http` client, sending `POST` and `GET`.
 
 ## TBD
 
 - Handle windows socket for `tcp`.
-- Write a simple http client that handle `post`, `get` request, it should accept the request body reader as a parameter and return the response body as a reader.
 
