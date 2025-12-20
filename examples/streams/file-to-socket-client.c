@@ -1,10 +1,7 @@
 #include <assert.h>
 #include <fcntl.h>
 
-#include "../../io.h"
-
-#include "../../file.h"
-#include "../../tcp.h"
+#include "../../qbs.h"
 
 int main(void) {
   qbs_io_file_t f = qbs_file_open("./assets/testfile.text", O_RDONLY);
