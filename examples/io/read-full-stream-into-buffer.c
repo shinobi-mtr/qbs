@@ -1,3 +1,5 @@
+#define QBS_IMPL
+
 #include "../../qbs.h"
 #include <assert.h>
 #include <fcntl.h>
@@ -16,8 +18,8 @@ int main(void) {
   unsigned char in[] = {A2048};
   unsigned char out[1024] = {0};
 
-  qbs_bytes_io_t r = qbs_bytes_reader(in, sizeof(in));
-  qbs_io_respose_t rio = qbs_io_read_full(&r.io, out, sizeof(out));
+  qbs_bytes_t r = qbs_bytes_reader(in, sizeof(in));
+  qbs_result_t rio = qbs_io_read_full(&r.io, out, sizeof(out));
 
   assert(rio.err == qbs_io_err_null);
   assert(rio.n == sizeof(out));
