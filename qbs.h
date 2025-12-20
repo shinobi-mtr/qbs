@@ -1,6 +1,7 @@
 #ifndef QBS_H_
 #define QBS_H_
 
+#include <cstdint>
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -130,6 +131,8 @@ QBSDEF uint16_t qbs_io_invalid_close(void *ctx) {
 
 QBSDEF const uint8_t *qbs_io_error_to_string(int16_t code) {
   switch (code) {
+  case qbs_io_err_null:
+    return (uint8_t *)"No error";
   case qbs_io_err_eof:
     return (uint8_t *)"EOF";
   case qbs_io_err_unexpected_eof:
@@ -138,6 +141,10 @@ QBSDEF const uint8_t *qbs_io_error_to_string(int16_t code) {
     return (uint8_t *)"no progress";
   case qbs_io_err_short_buffer:
     return (uint8_t *)"short buffer";
+  case qbs_io_err_long_buffer:
+    return (uint8_t *)"log buffer";
+  case qbs_io_err_invalid_method:
+    return (uint8_t *)"invalid method";
   }
   assert(0 && "unreachable");
   return (uint8_t *)"unreachable";
