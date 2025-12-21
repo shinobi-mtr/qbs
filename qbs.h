@@ -36,9 +36,6 @@ typedef struct {
 } qbs_io_t;
 
 typedef struct {
-} qbs_limit_ctx;
-
-typedef struct {
   qbs_io_t io;
   uint64_t limit;
   uint64_t done;
