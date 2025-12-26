@@ -19,11 +19,11 @@ int main(void) {
   uint8_t out[2024] = {0};
 
   qbs_bytes_t r = qbs_bytes_reader(in, sizeof(in));
-  qbs_bytes_t w = qbs_bytes_reader(out, sizeof(out));
+  qbs_bytes_t w = qbs_bytes_writer(out, sizeof(out));
 
   qbs_result_t rio = qbs_io_copy_n(&r.io, &w.io, 1024);
 
-  assert(rio.err == qbs_io_err_null);
+  assert(rio.err == false);
   assert(rio.n == 1024);
 
   return 0;

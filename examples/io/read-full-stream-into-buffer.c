@@ -21,6 +21,6 @@ int main(void) {
   qbs_bytes_t r = qbs_bytes_reader(in, sizeof(in));
   qbs_result_t rio = qbs_io_read_full(&r.io, out, sizeof(out));
 
-  assert(rio.err == qbs_io_err_null);
+  assert(rio.err == false);
   assert(rio.n == sizeof(out));
 }
