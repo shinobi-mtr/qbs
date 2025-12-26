@@ -18,7 +18,6 @@
 // LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 #ifndef QBS_H_
 #define QBS_H_
 
@@ -32,83 +31,247 @@
 #define QBSDEF static inline
 #endif
 
-#define QBS_EOF -1
-#define QBS_UNXEOF 1
-#define QBS_NOPROG 2
-#define QBS_TOSMALL 3
-#define QBS_TOBIG 4
-#define QBS_NOMETH 5
+/*
+ * @brief Error codes that errno will be set to if an error is detected by the library.
+ */
+typedef enum {
+  QBS_EOF = -1,
+  QBS_UNXEOF = 1,
+  QBS_NOPROG = 2,
+  QBS_TOSMALL = 3,
+  QBS_TOBIG = 4,
+  QBS_NOMETH = 5,
+} qbs_error_t;
 
+/*
+ * @brief QBS response struct, which contains the error state and the number of handled bytes.
+ */
 typedef struct {
-  bool err;
-  uint64_t n;
+  bool err;   // Error state; if true, the specific error code is provided in errno.
+  uint64_t n; // Number of bytes handled (read/written).
 } qbs_result_t;
 
 typedef qbs_result_t (*qbs_io_read)(void *ctx, uint8_t *bytes, uint64_t size);
 typedef qbs_result_t (*qbs_io_write)(void *ctx, uint8_t *bytes, uint64_t size);
 typedef uint16_t (*qbs_io_close)(void *ctx);
 
+/*
+ * @brief QBS object. This struct must exist within structs intended for use as stream sources.
+ */
 typedef struct {
-  qbs_io_read read;
-  qbs_io_write write;
-  qbs_io_close close;
+  qbs_io_read read;   // If the stream source does not implement a reader, set this to qbs_io_invalid_rw.
+  qbs_io_write write; // If the stream source does not implement a writer, set this to qbs_io_invalid_rw.
+  qbs_io_close close; // If the stream source does not implement a closer, set this to qbs_io_invalid_close.
 } qbs_io_t;
 
+/*
+ * @brief A stream source that limits another stream source's reader to a given byte count.
+ */
 typedef struct {
-  qbs_io_t io;
-  uint64_t limit;
-  uint64_t done;
-  qbs_io_t *r;
-  bool is_completed;
+  qbs_io_t io;       // QBS object (reader implemented only).
+  uint64_t limit;    // The actual limit the reader is not allowed to bypass.
+  uint64_t done;     // Number of bytes processed; errno is set to EOF if this reaches the limit.
+  qbs_io_t *r;       // Pointer to the underlying QBS stream source being limited.
+  bool is_completed; // True if the limit has been reached.
 } qbs_limit_t;
 
+/*
+ * @brief A stream source for handling files.
+ *
+ * @note This struct should only be constructed via qbs_file_open.
+ */
 typedef struct {
-  qbs_io_t io;
-  const char *filename;
-  const int mode;
-  int fd;
-  bool err;
+  qbs_io_t io;          // QBS object; reader/writer set to qbs_io_invalid_rw based on open mode.
+  const char *filename; // The filename provided by the user.
+  const int mode;       // File opening mode provided by the user.
+  int fd;               // The file descriptor returned from the open function.
+  bool err;             // True if an error occurred; details can be found in errno.
 } qbs_file_t;
 
+/*
+ * @brief A stream source for handling TCP connections.
+ *
+ * @note This struct should only be constructed via qbs_tcp_accept or qbs_tcp_dial.
+ */
 typedef struct {
-  qbs_io_t io;
-  const char *address;
-  const uint16_t port;
-  int sock;
-  bool err;
+  qbs_io_t io;         // QBS object.
+  const char *address; // The address provided by the user.
+  const uint16_t port; // The port provided by the user.
+  int sock;            // The file descriptor returned by accept or connect functions.
+  bool err;            // True if an error occurred; details can be found in errno.
 } qbs_sock_t;
 
+/*
+ * @brief TCP listener context.
+ *
+ * @note This struct should only be constructed via qbs_tcp_listen.
+ */
 typedef struct {
-  int sock;
-  struct sockaddr_in address;
-  bool err;
+  int sock;                   // File descriptor returned by the socket function.
+  struct sockaddr_in address; // The address to listen on.
+  bool err;                   // True if an error occurred; details can be found in errno.
 } qbs_listener_t;
 
+/*
+ * @brief A stream source for handling byte arrays and buffers.
+ *
+ * @note This struct should only be constructed via qbs_bytes_reader or qbs_bytes_writer.
+ */
 typedef struct {
-  qbs_io_t io;
-  uint64_t offset;
-  const uint64_t capacity;
-  uint8_t *buffer;
-  bool is_completed;
+  qbs_io_t io;             // QBS object; read/write methods set based on the construction function.
+  uint64_t offset;         // Current offset used to read/write from the correct index.
+  const uint64_t capacity; // Buffer size; prevents reading or writing beyond this limit.
+  uint8_t *buffer;         // The underlying buffer used for I/O operations.
+  bool is_completed;       // True if the offset has reached the capacity.
 } qbs_bytes_t;
 
-// IO Functions
+/*
+ * @brief Copies a stream of data from src to dst. Similar to qbs_io_copy_buffer but uses an internal buffer.
+ *
+ * @param src  QBS IO object implementing the reader interface.
+ * @param dst  QBS IO object implementing the writer interface.
+ *
+ * @return QBS result
+ * @retval .err = true on error, false otherwise.
+ * @retval .n = 0 on error, otherwise the number of bytes copied.
+ */
 QBSDEF qbs_result_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst);
+
+/*
+ * @brief Copies a stream of data from src to dst using a user-provided buffer.
+ *
+ * @param src  QBS IO object implementing the reader interface.
+ * @param dst  QBS IO object implementing the writer interface.
+ * @param buf  Byte array used as the intermediate buffer for copying.
+ * @param sz   Size of the provided buffer (buf).
+ *
+ * @return QBS result
+ * @retval .err = true on error, false otherwise.
+ * @retval .n = 0 on error, otherwise the number of bytes copied.
+ */
 QBSDEF qbs_result_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *buf, uint64_t sz);
+
+/*
+ * @brief Copies a stream of data from src to dst with a specific byte limit.
+ *
+ * @param src  QBS IO object implementing the reader interface.
+ * @param dst  QBS IO object implementing the writer interface.
+ * @param n    The maximum number of bytes to copy.
+ *
+ * @return QBS result
+ * @retval .err = true on error, false otherwise.
+ * @retval .n = 0 on error, otherwise the number of bytes copied.
+ *
+ * @note An error is returned if EOF is reached before n bytes are copied.
+ */
 QBSDEF qbs_result_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n);
+
+/*
+ * @brief Reads at least 'min' bytes from the data source into the provided buffer.
+ *
+ * @param r    QBS IO object implementing the reader interface.
+ * @param b    Buffer to copy data into.
+ * @param sz   Total size of the buffer (b).
+ * @param min  Minimum number of bytes to be read.
+ *
+ * @return QBS result
+ * @retval .err = true on error, false otherwise.
+ * @retval .n = 0 on error, otherwise the number of bytes read.
+ */
 QBSDEF qbs_result_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint64_t min);
+
+/*
+ * @brief Reads data from the reader until the buffer is full.
+ *
+ * @param r    QBS IO object implementing the reader interface.
+ * @param b    Buffer to copy data into.
+ * @param sz   Size of the buffer (b).
+ *
+ * @return QBS result
+ * @retval .err = true on error, false otherwise.
+ * @retval .n = 0 on error, otherwise the number of bytes read.
+ *
+ * @note Returns an error if EOF is reached before the buffer is filled.
+ */
 QBSDEF qbs_result_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz);
 
-// Reader/Writer creation
+/*
+ * @brief Creates a new QBS object that limits its reader to a specific byte count.
+ *
+ * @param r      The source QBS IO object.
+ * @param limit  The maximum number of bytes the new reader is allowed to read.
+ *
+ * @return A qbs_limit_t stream source.
+ */
 QBSDEF qbs_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit);
+
+/*
+ * @brief Creates a new QBS object with a reader for a specific byte buffer.
+ *
+ * @param buffer Array of bytes to be read.
+ * @param size   Size of the provided buffer.
+ *
+ * @return A qbs_bytes_t stream source.
+ */
 QBSDEF qbs_bytes_t qbs_bytes_reader(uint8_t *buffer, uint64_t size);
+
+/*
+ * @brief Creates a new QBS object with a writer for a specific byte buffer.
+ *
+ * @param buffer Array of bytes where data will be written.
+ * @param size   Maximum capacity of the buffer.
+ *
+ * @return A qbs_bytes_t stream source.
+ */
 QBSDEF qbs_bytes_t qbs_bytes_writer(uint8_t *buffer, uint64_t size);
+
+/*
+ * @brief Creates a new QBS object for file I/O.
+ *
+ * @param filename The name of the file to open.
+ * @param mode     File opening mode (defines if reader or writer is implemented).
+ *
+ * @return A qbs_file_t stream source.
+ */
 QBSDEF qbs_file_t qbs_file_open(const char *filename, int mode);
+
+/*
+ * @brief Creates a new QBS object to handle an accepted TCP client connection.
+ *
+ * @param l  A QBS listener object.
+ *
+ * @return A qbs_sock_t stream source.
+ */
 QBSDEF qbs_sock_t qbs_tcp_accept(qbs_listener_t *l);
-QBSDEF qbs_sock_t qbs_tcp_dail(const char *address, uint16_t port);
+
+/*
+ * @brief Creates a new QBS object and connects to a remote TCP server.
+ *
+ * @param address The target server address.
+ * @param port    The target server port.
+ *
+ * @return A qbs_sock_t stream source.
+ */
+QBSDEF qbs_sock_t qbs_tcp_dial(const char *address, uint16_t port);
+
+/*
+ * @brief TBD.
+ */
 QBSDEF qbs_sock_t qbs_http_get(const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz);
+
+/*
+ * @brief TBD.
+ */
 QBSDEF qbs_sock_t qbs_http_post(const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz, qbs_io_t *reader);
 
+/*
+ * @brief Creates a TCP listener that manages client connections as QBS IO objects.
+ *
+ * @param address The address to bind to.
+ * @param port    The port to listen on.
+ *
+ * @return A QBS listener object.
+ */
 QBSDEF qbs_listener_t qbs_tcp_listen(const char *address, uint16_t port);
 
 #endif // !QBS_H_
