@@ -1,20 +1,17 @@
-#include <stdint.h>
 #define QBS_IMPL
 
+#include "../../qbs.h"
 #include <assert.h>
 #include <fcntl.h>
-
-#include "../../qbs.h"
+#include <stdint.h>
 
 int main(void) {
-  qbs_file_t f = qbs_file_open("./assets/testfile.text", O_RDONLY);
-  assert(f.err == false);
+  qbs_file_t f = {};
+  qbs_sock_t s = {};
 
-  qbs_sock_t s = qbs_tcp_dail("127.0.0.1", 8080);
-  assert(s.err == false);
-
-  uint64_t r = qbs_io_copy(&f.io, &s.io);
-  assert(r != 0);
+  assert(qbs_file_open(&f, "./assets/testfile.text", O_RDONLY) == true);
+  assert(qbs_tcp_dial(&s, "127.0.0.1", 8080) == true);
+  assert(qbs_io_copy(&f.io, &s.io) != 0);
 
   s.io.close(&s);
   f.io.close(&f);

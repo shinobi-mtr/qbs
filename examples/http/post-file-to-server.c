@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <stdio.h>
 #define QBS_IMPL
 
 #include "../../qbs.h"
@@ -12,18 +11,19 @@ int main(void) {
                          "Accept: */*\r\n"
                          "Content-Length: 156\r\n"
                          "Content-Type: application/x-www-form-urlencoded\r\n"};
-  qbs_file_t f = qbs_file_open("./assets/testfile.text", O_RDONLY);
-  assert(f.err == false);
+  qbs_file_t f = {};
+  assert(qbs_file_open(&f, "./assets/testfile.text", O_RDONLY) == false);
 
-  qbs_sock_t s = qbs_http_post("127.0.0.1", 8080, route, sizeof(route) - 1, header, sizeof(header) - 1, &f.io);
-  assert(s.err == false);
+  qbs_sock_t s = {};
+  assert(qbs_http_post(&s, "127.0.0.1", 8080, route, sizeof(route) - 1, header, sizeof(header) - 1, &f.io) == false);
 
   uint8_t buff[2024] = {0};
-  qbs_bytes_t b = qbs_bytes_writer(buff, 2024);
+  qbs_bytes_t b = {};
+
+  assert(qbs_bytes_writer(&b, buff, 2024));
 
   uint64_t r = qbs_io_copy(&s.io, &b.io);
   assert(r != 0);
 
-  fprintf(stdout, "%s", buff);
   return 0;
 }
