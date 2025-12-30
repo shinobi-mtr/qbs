@@ -18,6 +18,7 @@
 // LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 // OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 #ifndef QBS_H_
 #define QBS_H_
 
@@ -41,18 +42,11 @@ typedef enum {
   QBS_TOSMALL = 3,
   QBS_TOBIG = 4,
   QBS_NOMETH = 5,
+  QBS_PARTW = 6,
 } qbs_error_t;
 
-/*
- * @brief QBS response struct, which contains the error state and the number of handled bytes.
- */
-typedef struct {
-  bool err;   // Error state; if true, the specific error code is provided in errno.
-  uint64_t n; // Number of bytes handled (read/written).
-} qbs_result_t;
-
-typedef qbs_result_t (*qbs_io_read)(void *ctx, uint8_t *bytes, uint64_t size);
-typedef qbs_result_t (*qbs_io_write)(void *ctx, uint8_t *bytes, uint64_t size);
+typedef uint64_t (*qbs_io_read)(void *ctx, uint8_t *bytes, uint64_t size);
+typedef uint64_t (*qbs_io_write)(void *ctx, uint8_t *bytes, uint64_t size);
 typedef uint16_t (*qbs_io_close)(void *ctx);
 
 /*
@@ -66,6 +60,8 @@ typedef struct {
 
 /*
  * @brief A stream source that limits another stream source's reader to a given byte count.
+ *
+ * @note This struct should only be constructed via qbs_io_add_limit.
  */
 typedef struct {
   qbs_io_t io;       // QBS object (reader implemented only).
@@ -83,9 +79,8 @@ typedef struct {
 typedef struct {
   qbs_io_t io;          // QBS object; reader/writer set to qbs_io_invalid_rw based on open mode.
   const char *filename; // The filename provided by the user.
-  const int mode;       // File opening mode provided by the user.
+  int mode;             // File opening mode provided by the user.
   int fd;               // The file descriptor returned from the open function.
-  bool err;             // True if an error occurred; details can be found in errno.
 } qbs_file_t;
 
 /*
@@ -96,9 +91,8 @@ typedef struct {
 typedef struct {
   qbs_io_t io;         // QBS object.
   const char *address; // The address provided by the user.
-  const uint16_t port; // The port provided by the user.
+  uint16_t port;       // The port provided by the user.
   int sock;            // The file descriptor returned by accept or connect functions.
-  bool err;            // True if an error occurred; details can be found in errno.
 } qbs_sock_t;
 
 /*
@@ -109,7 +103,6 @@ typedef struct {
 typedef struct {
   int sock;                   // File descriptor returned by the socket function.
   struct sockaddr_in address; // The address to listen on.
-  bool err;                   // True if an error occurred; details can be found in errno.
 } qbs_listener_t;
 
 /*
@@ -118,11 +111,11 @@ typedef struct {
  * @note This struct should only be constructed via qbs_bytes_reader or qbs_bytes_writer.
  */
 typedef struct {
-  qbs_io_t io;             // QBS object; read/write methods set based on the construction function.
-  uint64_t offset;         // Current offset used to read/write from the correct index.
-  const uint64_t capacity; // Buffer size; prevents reading or writing beyond this limit.
-  uint8_t *buffer;         // The underlying buffer used for I/O operations.
-  bool is_completed;       // True if the offset has reached the capacity.
+  qbs_io_t io;       // QBS object; read/write methods set based on the construction function.
+  uint64_t offset;   // Current offset used to read/write from the correct index.
+  uint64_t capacity; // Buffer size; prevents reading or writing beyond this limit.
+  uint8_t *buffer;   // The underlying buffer used for I/O operations.
+  bool is_completed; // True if the offset has reached the capacity.
 } qbs_bytes_t;
 
 /*
@@ -131,11 +124,11 @@ typedef struct {
  * @param src  QBS IO object implementing the reader interface.
  * @param dst  QBS IO object implementing the writer interface.
  *
- * @return QBS result
- * @retval .err = true on error, false otherwise.
- * @retval .n = 0 on error, otherwise the number of bytes copied.
+ * @return the size of the processed buffer
+ * @retval == 0 : if error occurred.
+ * @retval != 0 : the lenght of the processed buffer.
  */
-QBSDEF qbs_result_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst);
+QBSDEF uint64_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst);
 
 /*
  * @brief Copies a stream of data from src to dst using a user-provided buffer.
@@ -145,11 +138,11 @@ QBSDEF qbs_result_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst);
  * @param buf  Byte array used as the intermediate buffer for copying.
  * @param sz   Size of the provided buffer (buf).
  *
- * @return QBS result
- * @retval .err = true on error, false otherwise.
- * @retval .n = 0 on error, otherwise the number of bytes copied.
+ * @return the size of the processed buffer
+ * @retval == 0 : if error occurred.
+ * @retval != 0 : the lenght of the processed buffer.
  */
-QBSDEF qbs_result_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *buf, uint64_t sz);
+QBSDEF uint64_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *buf, uint64_t sz);
 
 /*
  * @brief Copies a stream of data from src to dst with a specific byte limit.
@@ -158,13 +151,13 @@ QBSDEF qbs_result_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *bu
  * @param dst  QBS IO object implementing the writer interface.
  * @param n    The maximum number of bytes to copy.
  *
- * @return QBS result
- * @retval .err = true on error, false otherwise.
- * @retval .n = 0 on error, otherwise the number of bytes copied.
+ * @return the size of the processed buffer
+ * @retval == 0 : if error occurred.
+ * @retval == n : the lenght of the processed buffer, which must be n.
  *
  * @note An error is returned if EOF is reached before n bytes are copied.
  */
-QBSDEF qbs_result_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n);
+QBSDEF uint64_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n);
 
 /*
  * @brief Reads at least 'min' bytes from the data source into the provided buffer.
@@ -174,11 +167,13 @@ QBSDEF qbs_result_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n);
  * @param sz   Total size of the buffer (b).
  * @param min  Minimum number of bytes to be read.
  *
- * @return QBS result
- * @retval .err = true on error, false otherwise.
- * @retval .n = 0 on error, otherwise the number of bytes read.
+ * @return the size of the processed buffer
+ * @retval == 0 : if error occurred.
+ * @retval >= min : the lenght of the processed buffer, which must be 'min'.
+ *
+ * @note An error is returned if EOF is reached before 'min' bytes are copied.
  */
-QBSDEF qbs_result_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint64_t min);
+QBSDEF uint64_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint64_t min);
 
 /*
  * @brief Reads data from the reader until the buffer is full.
@@ -187,92 +182,107 @@ QBSDEF qbs_result_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, u
  * @param b    Buffer to copy data into.
  * @param sz   Size of the buffer (b).
  *
- * @return QBS result
- * @retval .err = true on error, false otherwise.
- * @retval .n = 0 on error, otherwise the number of bytes read.
+ * @return the size of the processed buffer
+ * @retval == 0 : if error occurred.
+ * @retval == sz : the lenght of the processed buffer, which must be 'sz'.
  *
  * @note Returns an error if EOF is reached before the buffer is filled.
  */
-QBSDEF qbs_result_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz);
+QBSDEF uint64_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz);
 
 /*
  * @brief Creates a new QBS object that limits its reader to a specific byte count.
  *
- * @param r      The source QBS IO object.
- * @param limit  The maximum number of bytes the new reader is allowed to read.
+ * @param out   Pointer to the qbs_limit_t to be initialized.
+ * @param r     The source QBS IO object.
+ * @param limit The maximum number of bytes the new reader is allowed to read.
  *
- * @return A qbs_limit_t stream source.
+ * @return True if initialized successfully, otherwise errors can be found in errno.
  */
-QBSDEF qbs_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit);
+QBSDEF bool qbs_io_add_limit(qbs_limit_t *out, qbs_io_t *r, uint64_t limit);
 
 /*
  * @brief Creates a new QBS object with a reader for a specific byte buffer.
  *
+ * @param out    Pointer to the qbs_bytes_t to be initialized.
  * @param buffer Array of bytes to be read.
  * @param size   Size of the provided buffer.
  *
- * @return A qbs_bytes_t stream source.
+ * @return True if initialized successfully, otherwise errors can be found in errno.
  */
-QBSDEF qbs_bytes_t qbs_bytes_reader(uint8_t *buffer, uint64_t size);
+QBSDEF bool qbs_bytes_reader(qbs_bytes_t *out, uint8_t *buffer, uint64_t size);
 
 /*
  * @brief Creates a new QBS object with a writer for a specific byte buffer.
  *
+ * @param out    Pointer to the qbs_bytes_t to be initialized.
  * @param buffer Array of bytes where data will be written.
  * @param size   Maximum capacity of the buffer.
  *
- * @return A qbs_bytes_t stream source.
+ * @return True if initialized successfully, otherwise errors can be found in errno.
  */
-QBSDEF qbs_bytes_t qbs_bytes_writer(uint8_t *buffer, uint64_t size);
+QBSDEF bool qbs_bytes_writer(qbs_bytes_t *out, uint8_t *buffer, uint64_t size);
 
 /*
  * @brief Creates a new QBS object for file I/O.
  *
+ * @param out      Pointer to the qbs_file_t to be initialized.
  * @param filename The name of the file to open.
  * @param mode     File opening mode (defines if reader or writer is implemented).
  *
- * @return A qbs_file_t stream source.
+ * @return True if initialized successfully, otherwise errors can be found in errno.
  */
-QBSDEF qbs_file_t qbs_file_open(const char *filename, int mode);
+QBSDEF bool qbs_file_open(qbs_file_t *out, const char *filename, int mode);
 
 /*
  * @brief Creates a new QBS object to handle an accepted TCP client connection.
  *
- * @param l  A QBS listener object.
+ * @param out Pointer to the qbs_sock_t to be initialized.
+ * @param l   A QBS listener object.
  *
- * @return A qbs_sock_t stream source.
+ * @return True if initialized successfully, otherwise errors can be found in errno.
  */
-QBSDEF qbs_sock_t qbs_tcp_accept(qbs_listener_t *l);
+QBSDEF bool qbs_tcp_accept(qbs_sock_t *out, qbs_listener_t *l);
 
 /*
  * @brief Creates a new QBS object and connects to a remote TCP server.
  *
+ * @param out     Pointer to the qbs_sock_t to be initialized.
  * @param address The target server address.
  * @param port    The target server port.
  *
- * @return A qbs_sock_t stream source.
+ * @return True if initialized successfully, otherwise errors can be found in errno.
  */
-QBSDEF qbs_sock_t qbs_tcp_dial(const char *address, uint16_t port);
+QBSDEF bool qbs_tcp_dial(qbs_sock_t *out, const char *address, uint16_t port);
 
 /*
- * @brief TBD.
+ * @brief Performs an HTTP GET request.
+ *
+ * @param out     Pointer to the qbs_sock_t to be initialized.
+ *
+ * @return True if initialized successfully, otherwise errors can be found in errno.
  */
-QBSDEF qbs_sock_t qbs_http_get(const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz);
+QBSDEF bool qbs_http_get(qbs_sock_t *out, const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz);
 
 /*
- * @brief TBD.
+ * @brief Performs an HTTP POST request.
+ *
+ * @param out     Pointer to the qbs_sock_t to be initialized.
+ *
+ * @return True if initialized successfully, otherwise errors can be found in errno.
  */
-QBSDEF qbs_sock_t qbs_http_post(const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz, qbs_io_t *reader);
+QBSDEF bool qbs_http_post(qbs_sock_t *out, const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz, qbs_io_t *reader);
 
 /*
  * @brief Creates a TCP listener that manages client connections as QBS IO objects.
  *
+ * @param out     Pointer to the qbs_listener_t to be initialized.
  * @param address The address to bind to.
  * @param port    The port to listen on.
  *
- * @return A QBS listener object.
+ * @return True if initialized successfully, otherwise errors can be found in errno.
  */
-QBSDEF qbs_listener_t qbs_tcp_listen(const char *address, uint16_t port);
+QBSDEF bool qbs_tcp_listen(qbs_listener_t *out, const char *address, uint16_t port);
 
 #endif // !QBS_H_
 
@@ -285,116 +295,101 @@ QBSDEF qbs_listener_t qbs_tcp_listen(const char *address, uint16_t port);
 
 #define qbs_io_min(a, b) (((a) < (b)) ? (a) : (b))
 
-QBSDEF qbs_result_t qbs_io_invalid_rw(void *ctx, uint8_t *bytes, uint64_t size) {
+QBSDEF uint64_t qbs_io_invalid_rw(void *ctx, uint8_t *bytes, uint64_t size) {
   assert(0 && "unreachable");
+  assert(ctx == 0);
+  assert(bytes == 0);
+  assert(size == 0);
   errno = QBS_NOMETH;
-  return (qbs_result_t){.err = true};
+  return 0;
 }
 
 QBSDEF uint16_t qbs_io_invalid_close(void *ctx) {
   assert(0 && "unreachable");
-  return QBS_NOMETH;
+  assert(ctx == 0);
+  errno = QBS_NOMETH;
+  return 0;
 }
 
-QBSDEF qbs_result_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *buf, uint64_t sz) {
+QBSDEF uint64_t qbs_io_copy_buffer(qbs_io_t *src, qbs_io_t *dst, uint8_t *buf, uint64_t sz) {
   assert(src != 0);
   assert(dst != 0);
   assert(sz != 0);
 
-  qbs_result_t rn, wn;
+  uint64_t rn, wn;
   uint64_t ttl = 0;
 
   while (true) {
     rn = src->read(src, buf, sz);
-    if (rn.err == true && errno == QBS_EOF)
+    if (rn == 0 && errno == QBS_EOF)
       break;
-    if (rn.err == true)
-      return (qbs_result_t){
-          .err = true,
-          .n = ttl,
-      };
+    if (rn == 0)
+      return 0;
 
-    wn = dst->write(dst, buf, rn.n);
-    if (wn.err == true)
-      return (qbs_result_t){
-          .err = true,
-          .n = ttl,
-      };
+    wn = dst->write(dst, buf, rn);
+    if (wn == 0)
+      return 0;
 
-    if (UINT64_MAX - ttl < rn.n) {
-      errno = QBS_TOBIG;
-      return (qbs_result_t){
-          .err = true,
-          .n = ttl,
-      };
+    if (wn != rn) {
+      errno = QBS_PARTW;
+      return 0;
     }
-    ttl += wn.n;
+    if (UINT64_MAX - ttl < wn) {
+      errno = QBS_TOBIG;
+      return 0;
+    }
+    ttl += wn;
     continue;
   }
-  return (qbs_result_t){
-      .err = false,
-      .n = ttl,
-  };
+  return ttl;
 }
 
-QBSDEF qbs_result_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst) {
+QBSDEF uint64_t qbs_io_copy(qbs_io_t *src, qbs_io_t *dst) {
   uint8_t mid[512] = {0};
   return qbs_io_copy_buffer(src, dst, mid, sizeof(mid));
 }
 
-QBSDEF qbs_result_t qbs_io_limit_read(qbs_limit_t *ltx, uint8_t *buf, uint64_t sz) {
+QBSDEF uint64_t qbs_io_limit_read(qbs_limit_t *ltx, uint8_t *buf, uint64_t sz) {
   assert(buf != 0);
   assert(sz != 0);
   assert(ltx->done <= ltx->limit);
 
   if (ltx->is_completed) {
     errno = QBS_NOPROG;
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
+    return 0;
   }
 
   if (ltx->done == ltx->limit) {
     ltx->is_completed = true;
     errno = QBS_EOF;
-    return (qbs_result_t){
-        .err = true,
-        .n = ltx->done,
-    };
+    return 0;
   }
 
   uint64_t rem = ltx->limit - ltx->done;
   sz = qbs_io_min(rem, sz);
-  qbs_result_t rn = ltx->r->read(ltx->r, buf, sz);
-  if (rn.err == true && errno == QBS_EOF) {
+  uint64_t rn = ltx->r->read(ltx->r, buf, sz);
+  if (rn == 0 && errno == QBS_EOF) {
     ltx->is_completed = true;
-    return (qbs_result_t){
-        .err = true,
-        .n = rn.n,
-    };
+    return 0;
   }
+  if (rn == 0)
+    return 0;
 
-  if (rn.err == true)
-    return rn;
-
-  if (UINT64_MAX - ltx->done < rn.n) {
+  if (UINT64_MAX - ltx->done < rn) {
     errno = QBS_TOBIG;
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
+    return 0;
   }
 
-  ltx->done += rn.n;
+  ltx->done += rn;
   return rn;
 }
 
-QBSDEF qbs_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit) {
+QBSDEF bool qbs_io_add_limit(qbs_limit_t *out, qbs_io_t *r, uint64_t limit) {
+  assert(out != 0);
   assert(r != 0);
   assert(limit != 0);
 
-  return (qbs_limit_t){
+  *out = (qbs_limit_t){
       .io =
           {
               .read = (qbs_io_read)qbs_io_limit_read,
@@ -407,70 +402,54 @@ QBSDEF qbs_limit_t qbs_io_add_limit(qbs_io_t *r, uint64_t limit) {
       .r = r,
       .is_completed = false,
   };
+  return true;
 }
 
-QBSDEF qbs_result_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n) {
-  qbs_limit_t l = qbs_io_add_limit(src, n);
+QBSDEF uint64_t qbs_io_copy_n(qbs_io_t *src, qbs_io_t *dst, uint64_t n) {
+  qbs_limit_t l;
+  qbs_io_add_limit(&l, src, n);
   return qbs_io_copy((qbs_io_t *)&l, dst);
 }
 
-QBSDEF qbs_result_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint64_t min) {
+QBSDEF uint64_t qbs_io_read_at_least(qbs_io_t *r, uint8_t *b, uint64_t sz, uint64_t min) {
   assert(r != 0);
   assert(b != 0);
   assert(sz != 0);
-  qbs_result_t rn = {
-      .err = false,
-      .n = 0,
-  };
 
   if (min > sz) {
     errno = QBS_TOSMALL;
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
+    return 0;
   }
 
   uint64_t ttl = 0;
   while (ttl < min) {
-    rn = r->read(r, b, sz);
-    if (rn.err == true && errno == QBS_EOF)
+    uint64_t rn = r->read(r, b, sz);
+    if (rn == 0 && errno == QBS_EOF)
       break;
-    if (rn.err == true)
-      return (qbs_result_t){
-          .err = true,
-          .n = ttl,
-      };
-    if (UINT64_MAX - ttl < rn.n) {
+    if (rn == 0)
+      return 0;
+
+    if (UINT64_MAX - ttl < rn) {
       errno = QBS_TOBIG;
-      return (qbs_result_t){
-          .err = true,
-          .n = ttl,
-      };
+      return 0;
     }
-    ttl += rn.n;
+    ttl += rn;
   }
   if (ttl < min) {
     errno = QBS_UNXEOF;
-    return (qbs_result_t){
-        .err = true,
-        .n = ttl,
-    };
+    return 0;
   }
-  return (qbs_result_t){
-      .err = false,
-      .n = ttl,
-  };
+  return ttl;
 }
 
-QBSDEF qbs_result_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz) {
-  qbs_result_t result = qbs_io_read_at_least(r, b, sz, sz);
+QBSDEF uint64_t qbs_io_read_full(qbs_io_t *r, uint8_t *b, uint64_t sz) {
+  uint64_t result = qbs_io_read_at_least(r, b, sz, sz);
   return result;
 }
 
 QBSDEF uint16_t qbs_file_close(qbs_file_t *ctx) { return close(ctx->fd); }
 
-QBSDEF qbs_result_t qbs_file_read(qbs_file_t *ctx, uint8_t *b, uint64_t sz) {
+QBSDEF uint64_t qbs_file_read(qbs_file_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
   assert(ctx->mode == O_RDONLY || ctx->mode == O_RDWR);
@@ -479,53 +458,37 @@ QBSDEF qbs_result_t qbs_file_read(qbs_file_t *ctx, uint8_t *b, uint64_t sz) {
   int64_t res = read(ctx->fd, b, sz);
   if (res == 0) {
     errno = QBS_EOF;
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
+    return 0;
   }
 
   if (res < 0)
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
+    return 0;
 
-  return (qbs_result_t){
-      .err = false,
-      .n = (uint64_t)res,
-  };
+  return res;
 }
 
-QBSDEF qbs_result_t qbs_file_write(qbs_file_t *ctx, uint8_t *b, uint64_t sz) {
+QBSDEF uint64_t qbs_file_write(qbs_file_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
   assert(ctx->mode == O_WRONLY || ctx->mode == O_RDWR);
   assert(sz > 0);
 
   int64_t res = write(ctx->fd, b, sz);
-  if (res == -1) {
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
-  }
+  if (res == -1)
+    return 0;
 
-  return (qbs_result_t){
-      .err = false,
-      .n = (uint64_t)res,
-  };
+  return res;
 }
 
-QBSDEF qbs_file_t qbs_file_open(const char *filename, int mode) {
+QBSDEF bool qbs_file_open(qbs_file_t *out, const char *filename, int mode) {
   int fd = open(filename, mode, 0644);
   if (fd == -1)
-    return (qbs_file_t){.err = true};
+    return false;
 
   qbs_io_read rcb = (mode == O_RDWR || mode == O_RDONLY) ? (qbs_io_read)qbs_file_read : qbs_io_invalid_rw;
   qbs_io_write wcb = (mode == O_RDWR || mode == O_WRONLY) ? (qbs_io_write)qbs_file_write : qbs_io_invalid_rw;
 
-  return (qbs_file_t){
+  *out = (qbs_file_t){
       .io =
           {
               .read = rcb,
@@ -535,36 +498,27 @@ QBSDEF qbs_file_t qbs_file_open(const char *filename, int mode) {
       .filename = filename,
       .mode = mode,
       .fd = fd,
-      .err = false,
   };
+  return true;
 }
 
 QBSDEF uint16_t qbs_tcp_close(qbs_sock_t *ctx) { return close(ctx->sock); }
 
-QBSDEF qbs_result_t qbs_tcp_read(qbs_sock_t *ctx, uint8_t *b, uint64_t sz) {
+QBSDEF uint64_t qbs_tcp_read(qbs_sock_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
 
-  uint64_t res = read(ctx->sock, b, sz);
+  int64_t res = read(ctx->sock, b, sz);
   if (res == 0) {
     errno = QBS_EOF;
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
+    return 0;
   }
   if (res == -1)
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
-  return (qbs_result_t){
-      .err = false,
-      .n = res,
-  };
+    return 0;
+  return res;
 }
 
-QBSDEF qbs_result_t qbs_tcp_write(qbs_sock_t *ctx, uint8_t *b, uint64_t sz) {
+QBSDEF uint64_t qbs_tcp_write(qbs_sock_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
 
@@ -572,23 +526,17 @@ QBSDEF qbs_result_t qbs_tcp_write(qbs_sock_t *ctx, uint8_t *b, uint64_t sz) {
   while (sz != 0) {
     int64_t res = write(ctx->sock, b, sz);
     if (res == -1)
-      return (qbs_result_t){
-          .err = true,
-          .n = 0,
-      };
+      return 0;
     sz -= res;
     b += res;
   }
-  return (qbs_result_t){
-      .err = false,
-      .n = ttl,
-  };
+  return ttl;
 }
 
-QBSDEF qbs_sock_t qbs_tcp_dail(const char *address, uint16_t port) {
+QBSDEF bool qbs_tcp_dial(qbs_sock_t *out, const char *address, uint16_t port) {
   int sock = socket(AF_INET, SOCK_STREAM, 0);
   if (sock == -1)
-    return (qbs_sock_t){.err = true};
+    return false;
 
   struct sockaddr_in seradr;
   seradr.sin_family = AF_INET;
@@ -597,10 +545,9 @@ QBSDEF qbs_sock_t qbs_tcp_dail(const char *address, uint16_t port) {
 
   int res = connect(sock, (struct sockaddr *)&seradr, sizeof(seradr));
   if (res != 0)
-    return (qbs_sock_t){.err = true};
+    return false;
 
-  qbs_io_t io = (qbs_io_t){};
-  return (qbs_sock_t){
+  *out = (qbs_sock_t){
       .io =
           {
               .read = (qbs_io_read)qbs_tcp_read,
@@ -610,53 +557,54 @@ QBSDEF qbs_sock_t qbs_tcp_dail(const char *address, uint16_t port) {
       .address = address,
       .port = port,
       .sock = sock,
-      .err = false,
   };
+  return true;
 }
 
-QBSDEF qbs_listener_t qbs_tcp_listen(const char *address, uint16_t port) {
+QBSDEF bool qbs_tcp_listen(qbs_listener_t *out, const char *address, uint16_t port) {
   int sock, res;
   struct sockaddr_in addr;
   int opt = 1;
 
   sock = socket(AF_INET, SOCK_STREAM, 0);
-  if (sock == -1) {
-    return (qbs_listener_t){.err = true};
-  }
+  if (sock == -1)
+    return false;
+
   res = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
   if (res != 0) {
     close(sock);
-    return (qbs_listener_t){.err = true};
+    return false;
   }
 
   addr.sin_family = AF_INET;
-  addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(port);
+  inet_pton(AF_INET, address, &addr.sin_addr);
 
   res = bind(sock, (struct sockaddr *)&addr, sizeof(addr));
   if (res != 0) {
     close(sock);
-    return (qbs_listener_t){.err = true};
+    return false;
   }
   res = listen(sock, 4);
   if (res != 0) {
     close(sock);
-    return (qbs_listener_t){.err = true};
+    return false;
   }
-  return (qbs_listener_t){
+  *out = (qbs_listener_t){
       .sock = sock,
       .address = addr,
-      .err = false,
   };
+  return true;
 }
 
-QBSDEF qbs_sock_t qbs_tcp_accept(qbs_listener_t *l) {
+QBSDEF bool qbs_tcp_accept(qbs_sock_t *out, qbs_listener_t *l) {
   int addrlen = sizeof(l->address);
   int sock = accept(l->sock, (struct sockaddr *)&l->address, (socklen_t *)&addrlen);
-  if (sock == -1)
-    return (qbs_sock_t){.err = errno};
+  if (sock == -1) {
+    return false;
+  }
 
-  return (qbs_sock_t){
+  *out = (qbs_sock_t){
       .io =
           {
               .read = (qbs_io_read)qbs_tcp_read,
@@ -664,61 +612,46 @@ QBSDEF qbs_sock_t qbs_tcp_accept(qbs_listener_t *l) {
               .close = (qbs_io_close)qbs_tcp_close,
           },
       .sock = sock,
-      .err = false,
   };
+  return true;
 }
 
-QBSDEF qbs_result_t qbs_bytes_read(qbs_bytes_t *ctx, uint8_t *b, uint64_t sz) {
+QBSDEF uint64_t qbs_bytes_read(qbs_bytes_t *ctx, uint8_t *b, uint64_t sz) {
   if (ctx->is_completed) {
     errno = QBS_NOPROG;
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
+    return 0;
   }
 
   if (ctx->capacity == ctx->offset) {
     ctx->is_completed = true;
     errno = QBS_EOF;
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
+    return 0;
   }
 
   sz = qbs_io_min(sz, ctx->capacity - ctx->offset);
   for (size_t i = 0; i < sz; i++)
     b[i] = ctx->buffer[ctx->offset++];
 
-  return (qbs_result_t){
-      .err = false,
-      .n = sz,
-  };
+  return sz;
 }
 
-QBSDEF qbs_result_t qbs_bytes_write(qbs_bytes_t *ctx, uint8_t *b, uint64_t sz) {
+QBSDEF uint64_t qbs_bytes_write(qbs_bytes_t *ctx, uint8_t *b, uint64_t sz) {
   if (ctx->capacity - ctx->offset < sz) {
     errno = QBS_TOSMALL;
-    return (qbs_result_t){
-        .err = true,
-        .n = 0,
-    };
+    return 0;
   }
 
   for (size_t i = 0; i < sz; i++)
     ctx->buffer[ctx->offset++] = b[i];
-
-  return (qbs_result_t){
-      .err = false,
-      .n = sz,
-  };
+  return sz;
 }
 
-QBSDEF qbs_bytes_t qbs_bytes_reader(uint8_t *buffer, uint64_t size) {
+QBSDEF bool qbs_bytes_reader(qbs_bytes_t *out, uint8_t *buffer, uint64_t size) {
+  assert(out != 0);
   assert(buffer != 0);
   assert(size != 0);
 
-  return (qbs_bytes_t){
+  *out = (qbs_bytes_t){
       .io =
           {
               .read = (qbs_io_read)qbs_bytes_read,
@@ -730,13 +663,15 @@ QBSDEF qbs_bytes_t qbs_bytes_reader(uint8_t *buffer, uint64_t size) {
       .buffer = buffer,
       .is_completed = false,
   };
+  return true;
 }
 
-QBSDEF qbs_bytes_t qbs_bytes_writer(uint8_t *buffer, uint64_t size) {
+QBSDEF bool qbs_bytes_writer(qbs_bytes_t *out, uint8_t *buffer, uint64_t size) {
+  assert(out != 0);
   assert(buffer != 0);
   assert(size != 0);
 
-  return (qbs_bytes_t){
+  *out = (qbs_bytes_t){
       .io =
           {
               .read = qbs_io_invalid_rw,
@@ -748,82 +683,79 @@ QBSDEF qbs_bytes_t qbs_bytes_writer(uint8_t *buffer, uint64_t size) {
       .buffer = buffer,
       .is_completed = false,
   };
+  return true;
 }
 
-QBSDEF qbs_sock_t qbs_http_get(const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz) {
-  qbs_result_t r;
+QBSDEF bool qbs_http_get(qbs_sock_t *out, const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz) {
+  uint64_t r;
 
-  qbs_sock_t s = qbs_tcp_dail(address, port);
-  if (s.err == true)
-    return s;
+  if (!qbs_tcp_dial(out, address, port))
+    return false;
 
-  r = s.io.write(&s, (uint8_t *)"GET ", 4);
-  if (r.err == true)
+  r = out->io.write(out, (uint8_t *)"GET ", 4);
+  if (r == 0)
     goto err;
 
-  r = s.io.write(&s, (uint8_t *)route, rsz);
-  if (r.err == true)
+  r = out->io.write(out, (uint8_t *)route, rsz);
+  if (r == 0)
     goto err;
 
-  r = s.io.write(&s, (uint8_t *)" HTTP/1.1\r\n", 11);
-  if (r.err == true)
+  r = out->io.write(out, (uint8_t *)" HTTP/1.1\r\n", 11);
+  if (r == 0)
     goto err;
 
-  r = s.io.write(&s, (uint8_t *)header, hsz);
-  if (r.err == true)
+  r = out->io.write(out, (uint8_t *)header, hsz);
+  if (r == 0)
     goto err;
 
-  r = s.io.write(&s, (uint8_t *)"\r\n", 2);
-  if (r.err == true)
+  r = out->io.write(out, (uint8_t *)"\r\n", 2);
+  if (r == 0)
     goto err;
 
-  s.io.write = qbs_io_invalid_rw;
-  return s;
+  out->io.write = qbs_io_invalid_rw;
+  return true;
 
 err:
-  s.io.close(&s);
-  s.err = r.err;
-  return s;
+  out->io.close(out);
+  return false;
 }
 
-QBSDEF qbs_sock_t qbs_http_post(const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz, qbs_io_t *reader) {
-  qbs_result_t r;
+QBSDEF bool qbs_http_post(qbs_sock_t *out, const char *address, uint16_t port, const char *route, uint16_t rsz, const char *header, uint32_t hsz, qbs_io_t *reader) {
+  uint64_t r;
 
-  qbs_sock_t s = qbs_tcp_dail(address, port);
-  if (s.err == true)
-    return s;
+  if (!qbs_tcp_dial(out, address, port))
+    return false;
 
-  r = s.io.write(&s, (uint8_t *)"POST ", 5);
-  if (r.err == true)
+  r = out->io.write(out, (uint8_t *)"POST ", 5);
+  if (r == 0)
     goto err;
 
-  r = s.io.write(&s, (uint8_t *)route, rsz);
-  if (r.err == true)
+  r = out->io.write(out, (uint8_t *)route, rsz);
+  if (r == 0)
     goto err;
 
-  r = s.io.write(&s, (uint8_t *)" HTTP/1.1\r\n", 11);
-  if (r.err == true)
+  r = out->io.write(out, (uint8_t *)" HTTP/1.1\r\n", 11);
+  if (r == 0)
     goto err;
 
-  r = s.io.write(&s, (uint8_t *)header, hsz);
-  if (r.err == true)
+  r = out->io.write(out, (uint8_t *)header, hsz);
+  if (r == 0)
     goto err;
 
-  r = s.io.write(&s, (uint8_t *)"\r\n", 2);
-  if (r.err == true)
+  r = out->io.write(out, (uint8_t *)"\r\n", 2);
+  if (r == 0)
     goto err;
 
-  r = qbs_io_copy(reader, &s.io);
-  if (r.err == true)
+  r = qbs_io_copy(reader, &out->io);
+  if (r == 0)
     goto err;
 
-  s.io.write = qbs_io_invalid_rw;
-  return s;
+  out->io.write = qbs_io_invalid_rw;
+  return true;
 
 err:
-  s.io.close(&s);
-  s.err = r.err;
-  return s;
+  out->io.close(out);
+  return false;
 }
 
 #endif
