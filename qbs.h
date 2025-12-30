@@ -282,12 +282,16 @@ QBSDEF qbs_listener_t qbs_tcp_listen(const char *address, uint16_t port);
 
 QBSDEF uint64_t qbs_io_invalid_rw(void *ctx, uint8_t *bytes, uint64_t size) {
   assert(0 && "unreachable");
+  assert(ctx == 0);
+  assert(bytes == 0);
+  assert(size == 0);
   errno = QBS_NOMETH;
   return 0;
 }
 
 QBSDEF uint16_t qbs_io_invalid_close(void *ctx) {
   assert(0 && "unreachable");
+  assert(ctx == 0);
   errno = QBS_NOMETH;
   return 0;
 }
@@ -486,7 +490,7 @@ QBSDEF uint64_t qbs_tcp_read(qbs_sock_t *ctx, uint8_t *b, uint64_t sz) {
   assert(ctx != 0);
   assert(b != 0);
 
-  uint64_t res = read(ctx->sock, b, sz);
+  int64_t res = read(ctx->sock, b, sz);
   if (res == 0) {
     errno = QBS_EOF;
     return 0;
@@ -525,7 +529,6 @@ QBSDEF qbs_sock_t qbs_tcp_dail(const char *address, uint16_t port) {
   if (res != 0)
     return (qbs_sock_t){.err = true};
 
-  qbs_io_t io = (qbs_io_t){};
   return (qbs_sock_t){
       .io =
           {
@@ -556,8 +559,8 @@ QBSDEF qbs_listener_t qbs_tcp_listen(const char *address, uint16_t port) {
   }
 
   addr.sin_family = AF_INET;
-  addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(port);
+  inet_pton(AF_INET, address, &addr.sin_addr);
 
   res = bind(sock, (struct sockaddr *)&addr, sizeof(addr));
   if (res != 0) {
