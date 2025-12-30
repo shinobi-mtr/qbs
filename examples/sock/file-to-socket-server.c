@@ -1,3 +1,4 @@
+#include <stdint.h>
 #define QBS_IMPL
 
 #include "../../qbs.h"
@@ -15,8 +16,8 @@ int main(void) {
     qbs_file_t f = qbs_file_open("./assets/testfile.text", O_RDONLY);
     assert(f.err == false);
 
-    qbs_result_t r = qbs_io_copy(&f.io, &s.io);
-    assert(r.err == false);
+    uint64_t r = qbs_io_copy(&f.io, &s.io);
+    assert(r != 0);
 
     s.io.close(&s);
     f.io.close(&f);

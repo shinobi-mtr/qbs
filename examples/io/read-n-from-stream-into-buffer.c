@@ -21,10 +21,9 @@ int main(void) {
   qbs_bytes_t r = qbs_bytes_reader(in, sizeof(in));
   qbs_bytes_t w = qbs_bytes_writer(out, sizeof(out));
 
-  qbs_result_t rio = qbs_io_copy_n(&r.io, &w.io, 1024);
+  uint64_t n = qbs_io_copy_n(&r.io, &w.io, 1024);
 
-  assert(rio.err == false);
-  assert(rio.n == 1024);
+  assert(n == 1024);
 
   return 0;
 }

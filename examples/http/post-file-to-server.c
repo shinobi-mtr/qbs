@@ -21,8 +21,8 @@ int main(void) {
   uint8_t buff[2024] = {0};
   qbs_bytes_t b = qbs_bytes_writer(buff, 2024);
 
-  qbs_result_t r = qbs_io_copy(&s.io, &b.io);
-  assert(r.err == false);
+  uint64_t r = qbs_io_copy(&s.io, &b.io);
+  assert(r != 0);
 
   fprintf(stdout, "%s", buff);
   return 0;

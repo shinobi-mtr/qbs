@@ -19,8 +19,7 @@ int main(void) {
   unsigned char out[1024] = {0};
 
   qbs_bytes_t r = qbs_bytes_reader(in, sizeof(in));
-  qbs_result_t rio = qbs_io_read_full(&r.io, out, sizeof(out));
+  uint64_t n = qbs_io_read_full(&r.io, out, sizeof(out));
 
-  assert(rio.err == false);
-  assert(rio.n == sizeof(out));
+  assert(n == sizeof(out));
 }

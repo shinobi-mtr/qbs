@@ -1,3 +1,4 @@
+#include <stdint.h>
 #define QBS_IMPL
 
 #include <assert.h>
@@ -12,8 +13,8 @@ int main(void) {
   qbs_sock_t s = qbs_tcp_dail("127.0.0.1", 8080);
   assert(s.err == false);
 
-  qbs_result_t r = qbs_io_copy(&f.io, &s.io);
-  assert(r.err == false);
+  uint64_t r = qbs_io_copy(&f.io, &s.io);
+  assert(r != 0);
 
   s.io.close(&s);
   f.io.close(&f);
