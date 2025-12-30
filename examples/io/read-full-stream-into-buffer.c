@@ -12,7 +12,7 @@
 #define A64 A16 A16 A16 A16
 #define A254 A64 A64 A64 A64
 #define A1024 A254 A254 A254 A254
-#define A2048 A1024 A1024 A1024 A1024
+#define A2048 A1024 A1024
 
 int main(void) {
   unsigned char in[] = {A2048};
